@@ -1,10 +1,18 @@
-import {val} from "./new/app";
+import express from "express";
+import fileRoutes from "./routes/file";
+import dotenv from 'dotenv';
+import cors from 'cors';
 
-console.log("hello world", val)
+/* CONFIGURATIONS */
+const app = express();
+app.use(express.json());
+dotenv.config();
+app.use(cors())
 
-function addNum (a: number, b: string) {
-    const c = Number(b)
-    return a + c
-}
+/* ROUTES */
+app.use('/files', fileRoutes)
 
-addNum(5, "10")
+const port = process.env.PORT;
+app.listen(port, () => {
+    console.log(`http://localhost:${port}`)
+});
