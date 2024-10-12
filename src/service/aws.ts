@@ -1,8 +1,9 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import {addFileToDb} from "../dal/file";
-import {addPostToDb} from "../dal/post";
+import {addPostToDb, getAllPostsInDb} from "../dal/post";
 
 dotenv.config();
 
@@ -30,14 +31,14 @@ export const uploadToBucket = async (files: Express.Multer.File[], postId: strin
     const fileArray = [];
 
     for (const file of files) {
-//        const command = new PutObjectCommand({
-//            Bucket: bucketName,
-//            Key: file.originalname,
-//            Body: file.buffer,
-//            ContentType: file.mimetype
-//        })
-//
-//        await s3Client.send(command);
+       const command = new PutObjectCommand({
+           Bucket: bucketName,
+           Key: file.originalname,
+           Body: file.buffer,
+           ContentType: file.mimetype
+       })
+
+       await s3Client.send(command);
 
         const newFile = await addFileToDb({
             filename: genFilename(),
@@ -55,4 +56,33 @@ export const newPostWithFiles = async (title: string, files: Express.Multer.File
     const newPost = await createPost(title);
     const newFiles = await uploadToBucket(files, newPost.postId);
     return newFiles;
+};
+
+export const getAllPosts = async () => {
+    const posts = await getAllPostsInDb();
+    
+    const updatedPosts = await Promise.all(
+        posts.map(async post => ({
+            ...post,
+            files: await Promise.all(
+                post.files.map(async file => ({
+                    ...file,
+                    signedUrl: await signFileUrl(file.filename)
+                }))
+            )
+        }))
+    );
+
+    return updatedPosts;
+};
+
+const signFileUrl = async (filename: string) => {
+    const getObjectParams = {
+        Bucket: bucketName,
+        Key: filename
+    }
+    
+    const command = new GetObjectCommand(getObjectParams);
+    const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    return url;
 };

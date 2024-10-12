@@ -2,10 +2,21 @@ import express, { Request, Response, NextFunction } from 'express'
 import errorHandler from "../middleware/error-handler";
 import upload from "../utils/upload";
 import { ValidationError } from "../utils/errors";
-import { newPostWithFiles } from "../service/aws";
+import { getAllPosts, newPostWithFiles } from "../service/aws";
 
 const router = express.Router();
 
+/* GET POST */
+router.get("/", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const allPosts = await getAllPosts();
+        res.status(200).json(allPosts);
+    } catch (error) {
+        next(error);
+    }
+});
+
+/* CREATE A NEW POST */
 router.post("/", upload.array("files"), async (req: Request, res: Response, next: NextFunction) => {
     try {
         const files = req.files as Express.Multer.File[];
@@ -20,7 +31,7 @@ router.post("/", upload.array("files"), async (req: Request, res: Response, next
     } catch (error) {
         next(error);
     }
-})
+});
 
 router.use(errorHandler);
 export default router;

@@ -10,3 +10,15 @@ export const addPostToDb = async (title: string) => {
 
     return newPost[0];
 };
+
+export const getAllPostsInDb = async () => {
+    const allPosts = await db.query
+        .PostTable
+        .findMany({
+            with: {
+                files: true
+            }
+        })
+
+    return allPosts;
+};
