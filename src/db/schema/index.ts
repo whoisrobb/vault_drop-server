@@ -1,3 +1,3 @@
 export * from './file';
-export * from './post';
+export * from './folder';
 export * from './user';

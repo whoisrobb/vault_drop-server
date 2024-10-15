@@ -1,19 +1,33 @@
+import { eq } from "drizzle-orm";
 import db from "../db";
-import { PostTable } from "../db/schema";
+import { FolderTable } from "../db/schema";
 
-export const addPostToDb = async (title: string) => {
-    const newPost = await db.insert(PostTable)
+export const addPostToDb = async (name: string) => {
+    const newPost = await db.insert(FolderTable)
         .values({
-            title
+            name
         })
         .returning()
 
     return newPost[0];
 };
 
+export const getPostById = async (folderId: string) => {
+    const post = await db.query
+        .FolderTable
+        .findFirst({
+            where: eq(FolderTable.folderId, folderId),
+            with: {
+                files: true
+            }
+        });
+
+    return post;
+};
+
 export const getAllPostsInDb = async () => {
     const allPosts = await db.query
-        .PostTable
+        .FolderTable
         .findMany({
             with: {
                 files: true
@@ -21,4 +35,14 @@ export const getAllPostsInDb = async () => {
         })
 
     return allPosts;
+};
+
+export const deletePostById = async (folderId: string) => {
+    const post = await db.delete(FolderTable)
+        .where(
+            eq(FolderTable.folderId, folderId)
+        )
+        .returning()
+
+    return post;
 };

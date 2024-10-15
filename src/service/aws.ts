@@ -1,9 +1,10 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from "dotenv";
 import crypto from "crypto";
-import {addFileToDb} from "../dal/file";
-import {addPostToDb, getAllPostsInDb} from "../dal/post";
+import { addFileToDb } from "../dal/file";
+import { addPostToDb, deletePostById, getAllPostsInDb, getPostById } from "../dal/post";
+import { NotFoundError } from "../utils/errors";
 
 dotenv.config();
 
@@ -11,8 +12,6 @@ const bucketName = process.env.BUCKET_NAME!
 const bucketRegion = process.env.BUCKET_REGION!
 const accessKey = process.env.ACCESS_KEY!
 const secretAccessKey = process.env.SECRET_ACCESS_KEY!
-
-const genFilename = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
 
 const s3Client = new S3Client({
     credentials: {
@@ -22,46 +21,91 @@ const s3Client = new S3Client({
     region: bucketRegion
 });
 
+/* Generate unique filename */
+const genFilename = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
+
+/* Sign an s3 file url */
+const signFileUrl = async (filename: string) => {
+    const getObjectParams = {
+        Bucket: bucketName,
+        Key: filename
+    }
+    
+    const command = new GetObjectCommand(getObjectParams);
+    return await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+};
+
+/* Delete a file from s3 bucket */
+const deleteFromBucket = async (filename: string) => {
+    const deleteObjParams = {
+        Bucket: bucketName,
+        Key: filename
+    };
+
+    const command = new DeleteObjectCommand(deleteObjParams);
+    await s3Client.send(command);
+};
+
+/* Create new post in db */
 export const createPost = async (title: string) => {
     const newPost = await addPostToDb(title);
     return newPost;
 };
 
-export const uploadToBucket = async (files: Express.Multer.File[], postId: string) => {
-    const fileArray = [];
-
-    for (const file of files) {
-       const command = new PutObjectCommand({
-           Bucket: bucketName,
-           Key: file.originalname,
-           Body: file.buffer,
-           ContentType: file.mimetype
-       })
-
-       await s3Client.send(command);
-
-        const newFile = await addFileToDb({
-            filename: genFilename(),
-            mimetype: file.mimetype,
-            postId: postId
+/* Upload files to S3 bucket and save metadata to the db */
+export const uploadToBucket = async (files: Express.Multer.File[], folderId: string) => {
+    const fileUploads = files.map(async (file) => {
+        const filename = genFilename();
+        
+        const command = new PutObjectCommand({
+            Bucket: bucketName,
+            Key: filename,
+            Body: file.buffer,
+            ContentType: file.mimetype
         });
+ 
+        await s3Client.send(command);
 
-        fileArray.push(newFile);
+        return await addFileToDb({
+            filename: filename,
+            mimetype: file.mimetype,
+            folderId: folderId,
+            size: file.size
+        });
+    });
+
+    return await Promise.all(fileUploads);
+};
+
+/* Delete a post along with its associated files from S3 and database */
+export const deletePost = async (folderId: string) => {
+    const post = await getPostById(folderId);
+
+    if (!post) {
+        throw new NotFoundError("Post not found");
     }
 
-    return fileArray;
+    try {
+        await Promise.all(post.files.map((file) => deleteFromBucket(file.filename)));
+        const delPost = await deletePostById(folderId);
+        return delPost;
+    } catch (error) {
+        console.error(error);
+        throw new Error("Failed to delete post and associated files.");
+    }
 };
 
 export const newPostWithFiles = async (title: string, files: Express.Multer.File[]) => {
     const newPost = await createPost(title);
-    const newFiles = await uploadToBucket(files, newPost.postId);
+    const newFiles = await uploadToBucket(files, newPost.folderId);
     return newFiles;
 };
 
+/* Get all posts along with signed URLs for their files */
 export const getAllPosts = async () => {
     const posts = await getAllPostsInDb();
     
-    const updatedPosts = await Promise.all(
+    const enrichedPosts = await Promise.all(
         posts.map(async post => ({
             ...post,
             files: await Promise.all(
@@ -73,16 +117,5 @@ export const getAllPosts = async () => {
         }))
     );
 
-    return updatedPosts;
-};
-
-const signFileUrl = async (filename: string) => {
-    const getObjectParams = {
-        Bucket: bucketName,
-        Key: filename
-    }
-    
-    const command = new GetObjectCommand(getObjectParams);
-    const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-    return url;
+    return enrichedPosts;
 };

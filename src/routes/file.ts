@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express'
 import errorHandler from "../middleware/error-handler";
 import upload from "../utils/upload";
 import { ValidationError } from "../utils/errors";
-import { getAllPosts, newPostWithFiles } from "../service/aws";
+import { deletePost, getAllPosts, newPostWithFiles } from "../service/aws";
 
 const router = express.Router();
 
@@ -28,6 +28,18 @@ router.post("/", upload.array("files"), async (req: Request, res: Response, next
         const posts = await newPostWithFiles("Placeholder", files);
         res.status(201).json(posts);
 
+    } catch (error) {
+        next(error);
+    }
+});
+
+/* DELETE POST */
+router.delete("/:folderId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { folderId } = req.params;
+
+        const post = await deletePost(folderId);
+        res.status(200).json(post);
     } catch (error) {
         next(error);
     }
