@@ -71,6 +71,12 @@ export const createFile = async (file: Express.Multer.File, folderId: string) =>
 };
 
 export const addFilesToFolder = async (files: Express.Multer.File[], folderId: string) => {
+    const folder = await getFolderById(folderId);
+
+    if (!folder) {
+        throw new NotFoundError("Folder does not exist");
+    }
+
     if (!files || files.length < 1) {
         throw new ValidationError("Must include files to be added")
     }

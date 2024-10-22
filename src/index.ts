@@ -1,6 +1,7 @@
 import express from "express";
 import folderRoutes from "./routes/folder";
 import fileRoutes from "./routes/file";
+import eplusRoutes from "./routes/eplus";
 import dotenv from 'dotenv';
 import cors from 'cors';
 
@@ -13,6 +14,7 @@ app.use(cors())
 /* ROUTES */
 app.use('/folders', folderRoutes);
 app.use('/folders', fileRoutes);
+app.use('/eplus', eplusRoutes);
 
 const port = process.env.PORT;
 app.listen(port, () => {
