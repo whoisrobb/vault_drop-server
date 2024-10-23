@@ -2,7 +2,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 import crypto from "crypto";
-import { addFileToDb, deleteFileById, getFileById, getFilesByFolderId } from "../dal/file";
+import { addFileToDb, deleteFileById, getFileById, getFileByKey, getFilesByFolderId } from "../dal/file";
 import { NotFoundError, ValidationError } from "../utils/errors";
 import { getFolderById } from "../dal/folder";
 
@@ -68,6 +68,21 @@ export const createFile = async (file: Express.Multer.File, folderId: string) =>
         folderId: folderId,
         size: file.size
     });
+};
+
+export const getSingleFile = async (key: string) => {
+    const file = await getFileByKey(key);
+
+    if (!file) {
+        throw new NotFoundError("File not found");
+    }
+
+    const signedUrl = await signFileUrl(file.key);
+
+    return {
+        ...file,
+        signedUrl
+    }
 };
 
 export const addFilesToFolder = async (files: Express.Multer.File[], folderId: string) => {

@@ -1,16 +1,16 @@
 import express, { Request, Response, NextFunction } from 'express';
 import errorHandler from "../middleware/error-handler";
-import { addFilesToFolder, deleteFile, getAllFolderFiles } from '../service/file';
+import { addFilesToFolder, deleteFile, getAllFolderFiles, getSingleFile } from '../service/file';
 import upload from '../utils/upload';
 
 const router = express.Router();
 
 /* GET SINGLE FILE */
-router.get("/files/file/:fileId", async (req: Request, res: Response, next: NextFunction) => {
+router.get("/files/file/:key", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // const { fileId } = req.params;
-        // const file = await getSingleFile(fileId);
-        // res.status(200).json(file);
+        const { key } = req.params;
+        const file = await getSingleFile(key);
+        res.status(200).json(file);
     } catch (error) {
         next(error)
     }

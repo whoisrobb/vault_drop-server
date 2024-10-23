@@ -36,6 +36,16 @@ export const getFileById = async (fileId: string) => {
     return queryFile;
 };
 
+export const getFileByKey = async (key: string) => {
+    const queryFile = await db.query
+        .file
+        .findFirst({
+            where: eq(file.key, key)
+        });
+
+    return queryFile;
+};
+
 export const deleteFileById = async (fileId: string) => {
     const deletedFile = await db.delete(file)
         .where(
